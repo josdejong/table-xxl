@@ -1,0 +1,7 @@
+TABLE-XXL TODO
+
+- drastically improve performance
+- change the order of removing and appending rows: first append, then remove
+  (else you can never scroll down to the end, as the scroll pos is reduced)
+- implement as if it is an HTML DOM Table, where you can insertBefore and
+  append
