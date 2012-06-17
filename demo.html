@@ -3,50 +3,121 @@
     <title>TableXXL demo</title>
 
     <style type="text/css">
-        #smartTable {
+        body {
+            font-family: verdana, sans-serif;
+            color: #4d4d4d;
+        }
+
+        #tableNormal, #tableXxl {
             width: 400px;
             height: 400px;
             border: 1px solid gray;
             overflow: auto;
         }
 
+        th {
+            text-align: left;
+        }
         td {
             padding: 2px 10px;
+            vertical-align: top;
         }
     </style>
 
     <script type="text/javascript" src="table-xxl.js"></script>
 
+    <script type="text/javascript">
+        function log(msg) {
+            var info = document.getElementById('info');
+            info.innerHTML = info.innerHTML + '<br>' + (msg || '');
+        }
+
+        function createData(rowCount) {
+            var start = (new Date()).valueOf();
+            var data = [];
+            for (var i = 0; i < rowCount; i++) {
+                data.push([
+                    i,
+                    '<img src="img/coffee.png" style="width: 24px;">',
+                    'bla_bla',
+                    '<div contentEditable="true">editable bla bla</div>']);
+            }
+            var end = (new Date()).valueOf();
+            log(rowCount + ' rows created in ' + (end-start) + ' ms');
+
+            return data;
+        }
+
+        function loadNormalTable() {
+            var rowCount = document.getElementById('rowCount').value;
+            var data = createData(rowCount);
+
+            var start = (new Date()).valueOf();
+            var container = document.getElementById('tableNormal');
+            var table = document.createElement('table');
+            var tbody = document.createElement('tbody');
+            table.appendChild(tbody);
+            for (var i = 0, iMax = data.length; i < iMax; i++) {
+                var tr = TableXXL.createRow(data[i]);
+                table.appendChild(tr);
+            }
+            container.innerHTML = '';
+            container.appendChild(table);
+            var height = table.clientHeight;
+            var end = (new Date()).valueOf();
+            log('Normal Table loaded in ' + (end-start) + ' ms');
+            log();
+        }
+
+        function loadTableXxl() {
+            var rowCount = document.getElementById('rowCount').value;
+            var data = createData(rowCount);
+
+            var options = {
+                'defaultHeight': 24,
+                'maxNum': 100,
+                'blockNum': 10,
+                'classNames': {
+                    'tr': 'table-tr',
+                    'td': 'table-td',
+                    'th': 'table-th'
+                }
+            };
+
+            var start = (new Date()).valueOf();
+            var container = document.getElementById('tableXxl');
+            var table = new TableXXL(container);
+            table.setData(data, options);
+            var end = (new Date()).valueOf();
+            log('Table XXL loaded in ' + (end-start) + ' ms');
+            log();
+        }
+
+    </script>
+
 </head>
 <body>
 
-<button onclick="table.redraw();">Redraw</button>
-<div id="smartTable"></div>
+<h1>TableXXL Demo</h1>
 
-<script type="text/javascript">
+<p>
+    row count: <input id="rowCount" value="10000">
+    <button onclick="loadNormalTable();">Load Normal Table</button>
+    <button onclick="loadTableXxl();">Load Table XXL</button>
+</p>
 
-    var rows = 10000;
-    var defaultHeight = 32;
-
-    var data = [];
-    for (var i = 0; i < rows; i++) {
-        data.push([i, 'bla bla', 'bladiebla']);
-    }
-
-    var options = {
-        'defaultHeight': defaultHeight,
-        'classNames': {
-            'tr': 'table-tr',
-            'td': 'table-td',
-            'th': 'table-th'
-        }
-    };
-
-    var container = document.getElementById('smartTable');
-    var table = new TableXXL(container);
-    table.setData(data, options);
-
-</script>
+<table>
+    <tr>
+        <th>Normal Table</th>
+        <th>Table XXL</th>
+        <th>Info</th>
+    </tr>
+    <tr>
+        <td><div id="tableNormal"></div></td>
+        <td><div id="tableXxl"></div></td>
+        <td><p id="info"></p></td>
+    </tr>
+</table>
 
 </body>
 </html>

@@ -21,8 +21,8 @@
  *
  * Copyright (C) 2012 Jos de Jong
  *
- * @author    Jos de Jong <wjosdejong@gmaial.com>
- * @date      2012-06-16
+ * @author    Jos de Jong <wjosdejong@gmail.com>
+ * @date      2012-06-17
  */
 
 
@@ -32,14 +32,13 @@
  */
 var TableXXL = function (container) {
     this.container = container;
+    this.dom = {};
 
     // start and end index of the visible rows
     this.offset = 0;
     this.limit = 0;
+    this.length = 0;
 
-    this.dom = {
-        'rows': []
-    };
     this._createDom();
 
     this.setData([], {});
@@ -52,9 +51,30 @@ var TableXXL = function (container) {
  */
 TableXXL.prototype.setData = function (data, options) {
     this.data = data || [];
-    this.options = options || {};
+    this.length = this.data.length;
+    this.offset = 0;
+    this.limit = 0;
 
-    // TODO: create a header from the data?
+    // cleanup old DOM
+    this.dom.tbody.innerHTML = '';
+    this.dom.rows = [];
+
+    this.options = options || {};
+    if (typeof(this.options.defaultHeight) != 'number') {
+        this.options.defaultHeight = 24;
+    }
+    if (typeof(this.options.maxNum) != 'number') {
+        this.options.maxNum = 100;
+    }
+    if (this.options.maxNum < 100) {
+        this.options.maxNum = 100;
+    }
+    if (typeof(this.options.blockNum) != 'number') {
+        this.options.blockNum = 10;
+    }
+    if (this.options.blockNum < 1) {
+        this.options.blockNum = 1;
+    }
 
     this.redraw();
 };
@@ -66,39 +86,38 @@ TableXXL.prototype._createDom = function () {
     if (!this.container) {
         throw 'No HTML container defined';
     }
+    this.container.innerHTML = '';
 
-    this.dom.topSpace = document.createElement('div');
-    this.dom.topSpace.style.height  = '0px';
-    this.container.appendChild(this.dom.topSpace);
+    this.dom.topArea = document.createElement('div');
+    this.dom.topArea.style.height  = '0px';
+    this.container.appendChild(this.dom.topArea);
 
     this.dom.table = document.createElement('table');
     this.dom.tbody = document.createElement('tbody');
     this.dom.table.appendChild(this.dom.tbody);
     this.container.appendChild(this.dom.table);
 
-    this.dom.bottomSpace = document.createElement('div');
-    this.dom.bottomSpace.style.height  = '0px';
-    this.container.appendChild(this.dom.bottomSpace);
+    this.dom.bottomArea = document.createElement('div');
+    this.dom.bottomArea.style.height  = '0px';
+    this.container.appendChild(this.dom.bottomArea);
 
     var me = this;
-    addEventListener(this.container, 'scroll', function (event) {
-        //console.log('scroll', event);
-        me.redraw(); // TODO
+    TableXXL.addEventListener(this.container, 'scroll', function () {
+        me.redraw();
     });
-    // TODO: redraw when the scroll bar is being dragged
 };
 
 /**
  * Create a row from given data
- * @param {Array} row
- * @return {HTMLElement} domRow
+ * @param {String[]} data
+ * @return {Element} domRow
  */
-TableXXL.prototype.createRow = function (row) {
+TableXXL.createRow = function (data) {
     var domRow = document.createElement('tr');
 
-    for (var i = 0; i < row.length; i++) {
+    for (var i = 0; i < data.length; i++) {
         var td = document.createElement('td');
-        td.innerHTML = row[i];
+        td.innerHTML = data[i];
         domRow.appendChild(td);
     }
 
@@ -109,136 +128,131 @@ TableXXL.prototype.createRow = function (row) {
  * Redraw the table for the current visible window
  */
 TableXXL.prototype.redraw = function () {
-    var start = (new Date()).valueOf(); // TODO: cleanup
+    //var start = (new Date()).valueOf(); // TODO: cleanup
 
     if (!this.container) {
-        throw 'No HTML container defined';
+        throw new Error('No HTML container defined');
     }
-
-    //console.log('redraw');
 
     var data = this.data;
     var length = data.length;
-    var defaultHeight = 24; // TODO: defaultHeight from options
+    var defaultHeight = this.options.defaultHeight;
+    var blockNum = this.options.blockNum;
+    var blockHeight = blockNum * defaultHeight;
+    var maxNum = this.options.maxNum;
 
-    // calculate the current visible window
-    var scrollTop = this.container.scrollTop; // TODO: check if supported in IE
-    var height = this.container.clientHeight;
-    var absTop = scrollTop;
-    var absBottom = scrollTop + height;
+    var offset = this.offset;
+    var limit = this.limit;
 
-    var newOffset = this.offset;
-    var newLimit = this.limit;
+    // Calculate the current visible window
+    var windowTop = this.container.scrollTop; // TODO: check if supported in IE
+    var windowBottom = windowTop + this.container.clientHeight;
+    var i, j, row;
 
-    //console.log(newOffset, newOffset + newLimit, 'initial ');
-    //console.log(scrollTop);
+    // jump to completely new part of the data
+    var contentTop = this.dom.table.offsetTop - this.dom.topArea.offsetTop;
+    var contentBottom = this.dom.bottomArea.offsetTop - this.dom.topArea.offsetTop;
+    if (contentBottom < windowTop || contentTop > windowBottom) {
+        // TODO: optimize this method
+        var oldOffset = offset;
+        var oldLimit = limit;
 
-    // while start row < visible area, remove start row
-    var row = this.dom.rows[newOffset];
-    var topHeight = row ? this.dom.topSpace.clientHeight : 0;
-    while (newLimit > 0 && row && (topHeight + row.clientHeight < absTop)) {
-        var oldTableHeight = this.dom.table.clientHeight;
+        offset = Math.floor((windowTop - blockHeight) / defaultHeight);
+        offset = Math.floor(offset / blockNum) * blockNum;
+        if (offset >= length) {
+            offset = length - 1;
+        }
+        if (offset < 0) {
+            offset = 0;
+        }
+        limit = 0;
+        // TODO: offset may not exceed data length?
 
-        this.dom.tbody.removeChild(row);
-        delete this.dom.rows[newOffset];
+        //console.log('jump from', oldOffset, oldLimit, ' to ', offset);
 
-        var newTableHeight = this.dom.table.clientHeight;
-        var rowHeight = (oldTableHeight - newTableHeight);
-        scrollTop -= (rowHeight - defaultHeight);
-        topHeight += defaultHeight;
+        // Adjust height of top and bottom areas
+        this.dom.topArea.style.height = offset * defaultHeight + 'px';
+        this.dom.bottomArea.style.height = (length - offset - limit) * defaultHeight + 'px';
 
-        newOffset++;
-        newLimit--;
-        row = this.dom.rows[newOffset];
-    }
-    this.dom.topSpace.style.height = topHeight + 'px';
-
-    //console.log(newOffset, newOffset + newLimit, 'top rows removed ');
-
-    // while end row > visible area, remove end row
-    var row = this.dom.rows[newOffset + newLimit - 1];
-    while (newLimit > 0 && row && topHeight + row.offsetTop > absBottom) {
-        this.dom.tbody.removeChild(row);
-        delete this.dom.rows[newOffset + newLimit - 1];
-        newLimit--;
-        row = this.dom.rows[newOffset + newLimit - 1];
-    }
-
-    //console.log(newOffset, newOffset + newLimit, 'bottom rows removed ');
-
-
-    // scrollTop can be changed
-    var absTop = scrollTop;
-    var absBottom = scrollTop + height;
-
-    // while start row > visible area, add row before
-    var row = this.dom.rows[newOffset];
-    while (newOffset > 0 && row && (topHeight > absTop)) {
-        var oldTableHeight = this.dom.table.clientHeight;
-
-        newRow = this.createRow(data[newOffset - 1]);
-        this.dom.rows[newOffset - 1] = newRow;
-        this.dom.tbody.insertBefore(newRow, row);
-
-        var newTableHeight = this.dom.table.clientHeight;
-        var rowHeight = (newTableHeight - oldTableHeight);
-        scrollTop += (rowHeight - defaultHeight);
-        topHeight -= defaultHeight;
-
-        newOffset--;
-        newLimit++;
-        row = newRow;
-    }
-    this.dom.topSpace.style.height = topHeight + 'px';
-
-    //console.log(newOffset, newOffset + newLimit, 'top rows added ');
-
-    // scrollTop can be changed
-    var absTop = scrollTop;
-    var absBottom = scrollTop + height;
-
-    if (newLimit == 0) {
-        // jump downwards
-        while (newOffset < length && topHeight + defaultHeight < absTop) {
-            newOffset++;
-            topHeight += defaultHeight;
+        // remove all loaded rows
+        i = oldOffset + oldLimit - 1;
+        while (oldLimit > 0) {
+            row = this.dom.rows[i];
+            this.dom.tbody.removeChild(row);
+            delete this.dom.rows[i];
+            oldLimit--;
+            i--;
         }
 
-        // jump upwards
-        while (newOffset > 0 && topHeight > absTop) {
-            newOffset--;
-            topHeight -= defaultHeight;
+        contentTop = this.dom.table.offsetTop - this.dom.topArea.offsetTop;
+        contentBottom = this.dom.bottomArea.offsetTop - this.dom.topArea.offsetTop;
+    }
+
+    // append rows to the end when needed
+    i = offset + limit;
+    while ((contentBottom < windowBottom + blockHeight) && i < length) {
+        //console.log('A) add row', i);
+
+        for (j = 0; j < blockNum; j++) {
+            row = TableXXL.createRow(data[i]);
+            this.dom.rows[i] = row;
+            this.dom.tbody.appendChild(row);
+            limit++;
+            i++;
+            contentBottom += defaultHeight;
         }
-
-        this.dom.topSpace.style.height = topHeight + 'px';
-
-        //console.log(newOffset, newOffset + newLimit, 'jumped ');
     }
 
-    // while end row < visible area, add end row
-    var row = this.dom.rows[newOffset + newLimit - 1];
-    while ((newOffset + newLimit < length) &&
-        (!row || topHeight + row.offsetTop + row.clientHeight < absBottom)) {
-        row = this.createRow(data[newOffset + newLimit]);
-        this.dom.rows[newOffset + newLimit] = row;
-        this.dom.tbody.appendChild(row);
-        newLimit++;
+    // remove rows from the start when too many
+    while (limit > maxNum) {
+        //console.log('B) remove row', offset);
+        row = this.dom.rows[offset];
+        this.dom.tbody.removeChild(row);
+        delete this.dom.rows[offset];
+
+        limit--;
+        offset++;
     }
 
-    // console.log(newOffset, newOffset + newLimit, 'bottom rows added ');
+    // append rows to the start when needed
+    while ((contentTop > windowTop - blockHeight) && offset > 0) {
+        for (j = 0; j < blockNum; j++) {
+            offset--;
+            limit++;
+            contentTop -= defaultHeight;
 
-    this.dom.bottomSpace.style.height = (length - (newOffset + newLimit)) * defaultHeight + 'px';
-    //this.container.scrollTop = scrollTop; // TODO: scrolltop must be adjusted!
+            //console.log('C) add row', offset);
 
-    this.offset = newOffset;
-    this.limit = newLimit;
+            row = TableXXL.createRow(data[offset]);
+            this.dom.rows[offset] = row;
+            this.dom.tbody.insertBefore(row, this.dom.tbody.firstChild);
+        }
+    }
+
+    // remove rows from the end when too many
+    i = offset + limit - 1;
+    while (limit > maxNum) {
+        //console.log('D) remove row', i);
+        row = this.dom.rows[i];
+        this.dom.tbody.removeChild(row);
+        delete this.dom.rows[i];
+
+        limit--;
+        i--;
+    }
+
+    // Adjust height of top and bottom areas
+    this.dom.topArea.style.height = offset * defaultHeight + 'px';
+    this.dom.bottomArea.style.height = (length - offset - limit) * defaultHeight + 'px';
+
+    this.offset = offset;
+    this.limit = limit;
 
     //console.log(this.offset, 'to', this.offset + this.limit, 'bottom rows added ');
 
-    var end = (new Date()).valueOf(); // TODO: cleanup
-    console.log('redraw time ' + (end-start) + 'ms', "start=", this.offset, "end=", this.offset+this.limit-1 );
+    //var end = (new Date()).valueOf(); // TODO: cleanup
+    //console.log('redraw time:', (end-start), 'ms', "start:", this.offset, "end:", this.offset+this.limit-1);
 };
-
 
 /**
  * Add and event listener. Works for all browsers
@@ -248,7 +262,7 @@ TableXXL.prototype.redraw = function () {
  * @param {function}    listener   The callback function to be executed
  * @param {boolean}     useCapture
  */
-addEventListener = function (element, action, listener, useCapture) {
+TableXXL.addEventListener = function (element, action, listener, useCapture) {
     if (element.addEventListener) {
         if (useCapture === undefined) {
             useCapture = false;
