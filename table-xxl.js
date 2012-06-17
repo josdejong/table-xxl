@@ -191,8 +191,6 @@ TableXXL.prototype.redraw = function () {
     // append rows to the end when needed
     i = offset + limit;
     while ((contentBottom < windowBottom + blockHeight) && i < length) {
-        //console.log('A) add row', i);
-
         for (j = 0; j < blockNum; j++) {
             row = TableXXL.createRow(data[i]);
             this.dom.rows[i] = row;
@@ -205,7 +203,6 @@ TableXXL.prototype.redraw = function () {
 
     // remove rows from the start when too many
     while (limit > maxNum) {
-        //console.log('B) remove row', offset);
         row = this.dom.rows[offset];
         this.dom.tbody.removeChild(row);
         delete this.dom.rows[offset];
@@ -221,8 +218,6 @@ TableXXL.prototype.redraw = function () {
             limit++;
             contentTop -= defaultHeight;
 
-            //console.log('C) add row', offset);
-
             row = TableXXL.createRow(data[offset]);
             this.dom.rows[offset] = row;
             this.dom.tbody.insertBefore(row, this.dom.tbody.firstChild);
@@ -232,7 +227,6 @@ TableXXL.prototype.redraw = function () {
     // remove rows from the end when too many
     i = offset + limit - 1;
     while (limit > maxNum) {
-        //console.log('D) remove row', i);
         row = this.dom.rows[i];
         this.dom.tbody.removeChild(row);
         delete this.dom.rows[i];
@@ -247,8 +241,6 @@ TableXXL.prototype.redraw = function () {
 
     this.offset = offset;
     this.limit = limit;
-
-    //console.log(this.offset, 'to', this.offset + this.limit, 'bottom rows added ');
 
     //var end = (new Date()).valueOf(); // TODO: cleanup
     //console.log('redraw time:', (end-start), 'ms', "start:", this.offset, "end:", this.offset+this.limit-1);

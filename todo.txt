@@ -4,3 +4,4 @@ TABLE-XXL TODO
 - implement as if it is an HTML DOM Table, where you can insertBefore and
   append
 - use DocumentFragment to improve performance?
+- reduce flickering of the screen when jumping around in the data

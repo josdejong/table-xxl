@@ -39,8 +39,8 @@
                 data.push([
                     i,
                     '<img src="img/coffee.png" style="width: 24px;">',
-                    'bla_bla',
-                    '<div contentEditable="true">editable bla bla</div>']);
+                    'item' + i,
+                    '<div contentEditable="true">editable content ' + i + '</div>']);
             }
             var end = (new Date()).valueOf();
             log(rowCount + ' rows created in ' + (end-start) + ' ms');
