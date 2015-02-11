@@ -9,7 +9,7 @@
         }
 
         #tableNormal, #tableXxl {
-            width: 400px;
+            width: 500px;
             height: 400px;
             border: 1px solid gray;
             overflow: auto;
@@ -41,6 +41,15 @@
                     '<img src="img/coffee.png" style="width: 24px;">',
                     'item' + i,
                     '<div contentEditable="true">editable content ' + i + '</div>']);
+                /* TODO
+                var tr = document.createElement('tr');
+                tr.innerHTML =
+                        '<td>' + i + '</td>' +
+                        '<td><img src="img/coffee.png" style="width: 24px;"></td>' +
+                        '<td>item' + i + '</td>' +
+                        '<td><div contentEditable="true">editable content ' + i + '</div></td>';
+                data.push(tr);
+                */
             }
             var end = (new Date()).valueOf();
             log(rowCount + ' rows created in ' + (end-start) + ' ms');

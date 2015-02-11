@@ -41,13 +41,19 @@ var TableXXL = function (container) {
 
     this._createDom();
 
-    this.setData([], {});
+    this.options = {
+        'defaultHeight': 24,
+        'maxNum': 100,
+        'blockNum': 10,
+        'allowJumping': false
+    };
+    this.setData([]);
 };
 
 /**
  * Set data
- * @param {Array} data      an array with arrays or objects
- * @param {Object} options
+ * @param {Array} data        an array with arrays or objects
+ * @param {Object} [options]  optional options
  */
 TableXXL.prototype.setData = function (data, options) {
     this.data = data || [];
@@ -59,21 +65,26 @@ TableXXL.prototype.setData = function (data, options) {
     this.dom.tbody.innerHTML = '';
     this.dom.rows = [];
 
-    this.options = options || {};
-    if (typeof(this.options.defaultHeight) != 'number') {
-        this.options.defaultHeight = 24;
-    }
-    if (typeof(this.options.maxNum) != 'number') {
-        this.options.maxNum = 100;
-    }
-    if (this.options.maxNum < 100) {
-        this.options.maxNum = 100;
-    }
-    if (typeof(this.options.blockNum) != 'number') {
-        this.options.blockNum = 10;
-    }
-    if (this.options.blockNum < 1) {
-        this.options.blockNum = 1;
+    // override options
+    if (options) {
+        if (typeof(options.defaultHeight) == 'number') {
+            this.options.defaultHeight = options.defaultHeight;
+        }
+        if (typeof(options.maxNum) == 'number') {
+            this.options.maxNum = options.maxNum;
+        }
+        if (this.options.maxNum < 100) {
+            this.options.maxNum = 100;
+        }
+        if (typeof(options.blockNum) == 'number') {
+            this.options.blockNum = options.blockNum;
+        }
+        if (this.options.blockNum < 1) {
+            this.options.blockNum = 1;
+        }
+        if (typeof(options.allowJumping) == 'boolean') {
+            this.options.allowJumping = options.allowJumping;
+        }
     }
 
     this.redraw();
@@ -102,9 +113,15 @@ TableXXL.prototype._createDom = function () {
     this.container.appendChild(this.dom.bottomArea);
 
     var me = this;
+    //* TODO: where to attach the scroll listener?
     TableXXL.addEventListener(this.container, 'scroll', function () {
         me.redraw();
     });
+    /*
+    TableXXL.addEventListener(window, 'scroll', function () {
+        me.redraw();
+    });
+    */
 };
 
 /**
@@ -144,10 +161,34 @@ TableXXL.prototype.redraw = function () {
     var offset = this.offset;
     var limit = this.limit;
 
+    // find the first parent element which can scroll
+    var elem = this.container;
+    while (elem && elem.scrollHeight <= elem.offsetHeight) {
+        elem = elem.parentNode;
+    }
+    if (!elem) {
+        elem = this.container;
+    }
+    console.log('redraw');
+
     // Calculate the current visible window
-    var windowTop = this.container.scrollTop; // TODO: check if supported in IE
-    var windowBottom = windowTop + this.container.clientHeight;
-    var i, j, row;
+    var windowTop = elem.scrollTop; // TODO: check if supported in IE
+    var windowBottom = windowTop + elem.clientHeight;
+    var i, j, row, rows = this.dom.rows;
+
+    var getRow = function (index) {
+        var row = rows[index];
+        if (!row) {
+            if (data[index] instanceof Array) {
+                row = TableXXL.createRow(data[index]);
+            }
+            else {
+                row = data[index];
+            }
+            rows[index] = row;
+        }
+        return row;
+    };
 
     // jump to completely new part of the data
     var contentTop = this.dom.table.offsetTop - this.dom.topArea.offsetTop;
@@ -177,9 +218,7 @@ TableXXL.prototype.redraw = function () {
         // remove all loaded rows
         i = oldOffset + oldLimit - 1;
         while (oldLimit > 0) {
-            row = this.dom.rows[i];
-            this.dom.tbody.removeChild(row);
-            delete this.dom.rows[i];
+            this.dom.tbody.removeChild(rows[i]);
             oldLimit--;
             i--;
         }
@@ -192,8 +231,7 @@ TableXXL.prototype.redraw = function () {
     i = offset + limit;
     while ((contentBottom < windowBottom + blockHeight) && i < length) {
         for (j = 0; j < blockNum; j++) {
-            row = TableXXL.createRow(data[i]);
-            this.dom.rows[i] = row;
+            row = getRow(i);
             this.dom.tbody.appendChild(row);
             limit++;
             i++;
@@ -203,10 +241,7 @@ TableXXL.prototype.redraw = function () {
 
     // remove rows from the start when too many
     while (limit > maxNum) {
-        row = this.dom.rows[offset];
-        this.dom.tbody.removeChild(row);
-        delete this.dom.rows[offset];
-
+        this.dom.tbody.removeChild(rows[offset]);
         limit--;
         offset++;
     }
@@ -217,27 +252,28 @@ TableXXL.prototype.redraw = function () {
             offset--;
             limit++;
             contentTop -= defaultHeight;
-
-            row = TableXXL.createRow(data[offset]);
-            this.dom.rows[offset] = row;
-            this.dom.tbody.insertBefore(row, this.dom.tbody.firstChild);
+            row = getRow(offset);
+            this.dom.tbody.insertBefore(getRow(offset), this.dom.tbody.firstChild);
         }
     }
 
     // remove rows from the end when too many
     i = offset + limit - 1;
     while (limit > maxNum) {
-        row = this.dom.rows[i];
-        this.dom.tbody.removeChild(row);
-        delete this.dom.rows[i];
-
+        this.dom.tbody.removeChild(rows[i]);
         limit--;
         i--;
     }
 
     // Adjust height of top and bottom areas
-    this.dom.topArea.style.height = offset * defaultHeight + 'px';
-    this.dom.bottomArea.style.height = (length - offset - limit) * defaultHeight + 'px';
+    if (this.options.allowJumping) {
+        this.dom.topArea.style.height = offset * defaultHeight + 'px';
+        this.dom.bottomArea.style.height = (length - offset - limit) * defaultHeight + 'px';
+    }
+    else {
+        this.dom.topArea.style.height = offset * defaultHeight + 'px';
+        this.dom.bottomArea.style.height = 0 * defaultHeight + 'px';
+    }
 
     this.offset = offset;
     this.limit = limit;
